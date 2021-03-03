@@ -1,1 +1,2 @@
-# battle-ship
+# Battleship
+School project
