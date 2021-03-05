@@ -5,14 +5,13 @@ from tkinter import messagebox
 class Game(Tk):
     @staticmethod
     def new_game():
-        global num_ships, selected_cells, matrix
+        global num_ships, selected_cells, matrix, selected_pos
+        selected_pos = []
         matrix = []
+        selected_cells = []
         num_ships = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]
         frm_user_field.pack(side=TOP, padx='10', pady='10')
-        try:
-            frm_enemy_field.pack_forget()
-        except:
-            pass
+        frm_enemy_field.pack_forget()
         for y in range(10):
             line = []
             for x in range(10):
@@ -59,17 +58,14 @@ class Cell(LabelFrame):
             self['bg'] = '#fff'
             self.status = 0
             selected_cells.remove(self)
+            selected_pos.remove(self.pos)
         elif self.status == 0:
             self['bg'] = '#000'
             self.status = 1
             selected_cells.append(self)
+            selected_pos.append(self.pos)
         print(self.pos)  # debug
         print(len(selected_cells))
-
-    def unselect(self):
-        selected_cells.remove(self)
-        self['bg'] = '#fff'
-        self.status = 0
 
 
 class Ship:
@@ -78,8 +74,10 @@ class Ship:
 
 
 def place():
-    global selected_cells, num_ships, ships
+    global selected_cells, num_ships, ships, selected_pos
+    poses = []
     flag = True
+    print('!', *selected_cells)
     if num_ships[0] == len(selected_cells):
         set_of_y = set()
         set_of_x = set()
@@ -89,29 +87,35 @@ def place():
             set_of_x.add(cell.pos[0])
             set_of_y.add(cell.pos[1])
         coordinates.sort()
+        print('!', coordinates)
         for i in range(num_ships[0] - 1):
-            if (len(set_of_x) == 1 or len(set_of_y) == 1) \
+            if not ((len(set_of_x) == 1 or len(set_of_y) == 1)
                     and (abs(coordinates[i][0] - coordinates[i + 1][0]) == 1
-                         or abs(coordinates[i][1] - coordinates[i + 1][1]) == 1):
-                flag = True
-            else:
-                messagebox.showerror('Error', 'Incorrect positioning')
+                         or abs(coordinates[i][1] - coordinates[i + 1][1]) == 1)):
+                messagebox.showerror('Error', 'Incorrect form of ship')
                 flag = False
                 break
         if flag:
-            while coordinates:
-                pos = coordinates.pop()
-                if matrix[pos[1]][pos[0]].status == 0 \
-                        or (matrix[pos[1] - 1][pos[0] - 1].status == 1 and ((pos[1] - 1, pos[0] - 1) not in coordinates)) \
-                        or (matrix[pos[1] - 1][pos[0]].status == 1 and ((pos[1] - 1, pos[0]) not in coordinates)) \
-                        or (matrix[pos[1]][pos[0] - 1].status == 1 and ((pos[1], pos[0] - 1) not in coordinates)) \
-                        or (matrix[pos[1] + 1][pos[0] + 1].status == 1 and ((pos[1] + 1, pos[0] + 1) not in coordinates)) \
-                        or (matrix[pos[1] + 1][pos[0]].status == 1 and ((pos[1] + 1, pos[0]) not in coordinates)) \
-                        or (matrix[pos[1]][pos[0] + 1].status == 1 and ((pos[1], pos[0] + 1) not in coordinates)) \
-                        or (matrix[pos[1] - 1][pos[0] + 1].status == 1 and ((pos[1] - 1, pos[0] + 1) not in coordinates)) \
-                        or (matrix[pos[1] + 1][pos[0] - 1].status == 1 and ((pos[1] + 1, pos[0] - 1) not in coordinates)):
+            poses = selected_pos.copy()
+            for pos in coordinates:
+                poses.remove(pos)
+            for pos in coordinates:
+                in_flag = True
+                if matrix[pos[1]][pos[0]].status == 0:
+                    messagebox.showerror('Error', 'Already placed')
                     flag = False
-                    messagebox.showerror('Error', 'Error')
+                    break
+                for cell in poses:
+                    if (abs(pos[0] - cell[0]) == 1 and abs(pos[1] - cell[1]) == 1) \
+                            or (pos[0] - cell[0] == 0 and abs(pos[1] - cell[1]) == 1) \
+                            or (abs(pos[0] - cell[0]) == 1 and pos[1] - cell[1] == 0):
+                        print(selected_pos)
+                        print(poses)
+                        flag = False
+                        in_flag = False
+                        messagebox.showerror('Error', 'Incorrect positioning')
+                        break
+                if not in_flag:
                     break
     elif num_ships[0] > len(selected_cells):
         messagebox.showerror('Error', 'Select more cells')
@@ -121,6 +125,7 @@ def place():
         flag = False
     if flag:
         ships.append(Ship(selected_cells))
+        print(selected_pos)
         num_ships.pop(0)
         selected_cells.clear()
     else:
@@ -132,10 +137,11 @@ def place():
 
 def unselect_cells(cells):
     for cell in cells.copy():
-        cell.unselect()
+        cell.select('<Button-1>')
     cells.clear()
 
 
+selected_pos = []
 num_ships = []
 selected_cells = []
 ships = []
