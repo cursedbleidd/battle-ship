@@ -8,6 +8,10 @@ class Game(Tk):
         global num_ships, selected_cells
         num_ships = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]
         frm_user_field.pack(side=TOP, padx='10', pady='10')
+        try:
+            frm_enemy_field.pack_forget()
+        except:
+            pass
         for y in range(10):
             for x in range(10):
                 Cell(pos=(x, y), master=frm_user_field, width=40, height=40, bg='#fff', relief=GROOVE, borderwidth=1)\
@@ -85,12 +89,14 @@ def place():
     if flag:
         ships.append(Ship(selected_cells))
         num_ships.pop(0)
+        for cell in selected_cells:
+            cell.status = 5
         selected_cells.clear()
     else:
         unselect_cells(selected_cells)
     if len(num_ships) == 0:
+        btn_check.pack_forget()
         app.game()
-        btn_check.destroy()
 
 
 def unselect_cells(cells):
