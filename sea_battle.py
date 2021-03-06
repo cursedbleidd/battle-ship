@@ -3,159 +3,153 @@ from tkinter import messagebox
 
 
 class Game(Tk):
-    @staticmethod
-    def new_game():
-        global num_ships, selected_cells, matrix, selected_pos
-        selected_pos = []
-        matrix = []
-        selected_cells = []
-        num_ships = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]
-        frm_user_field.pack(side=TOP, padx='10', pady='10')
-        frm_enemy_field.pack_forget()
+    def __init__(self, screenName=None, baseName=None, className='Tk',
+                 useTk=1, sync=0, use=None):
+        super().__init__(screenName, baseName, className, useTk, sync, use)
+        self.player1 = Player(1, self, name='Player1')
+        self.player2 = Player(2, self, name='Player2')
+        self.title('BattleShip')
+        self.resizable(0, 0)
+        with open('rules.txt', 'r', encoding='utf-8') as f:
+            self.rules = Label(text=f.read())
+        menu = Menu()
+        self['menu'] = menu
+        menu.add_command(label='New game', command=self.new_game)
+        self.rules.pack()
+        self.btn_place = Button(text='Place ship', padx=10, pady=6)
+
+    def delete_players(self):
+        for player in self.player1, self.player2:
+            player.board.destroy()
+        del self.player1, self.player2
+
+    def new_game(self):
+        print(self.player1, self.player2)
+        self.delete_players()
+        self.player1 = Player(1, self, name='Player1')
+        self.player2 = Player(2, self, name='Player2')
+        self.rules.pack_forget()
+        self.btn_place.config(command=self.player1.board.place)
+        self.btn_place.pack(side=BOTTOM)
+        self.player1.board.pack()
+        messagebox.showinfo('', f'{self.player2.name} goes for a walk')
+
+    def ready(self, player):
+        if player.id == 1:
+            self.player1.board.pack_forget()
+            self.btn_place.config(command=self.player2.board.place)
+            self.player2.board.pack()
+            messagebox.showinfo('', f'{self.player1.name} goes for a walk')
+        elif player.id == 2:
+            self.player2.board.pack_forget()
+            self.btn_place.pack_forget()
+            self.game()
+        else:
+            messagebox.showerror('Error', 'Вы не готовы!')
+
+    def game(self):
+        pass
+
+
+class Board(Frame):
+    def __init__(self, player, matrix=[], **kw):
+        super().__init__(**kw)
+        self.player = player
+        self.selected_cells = []
+        self.placed_cells = []
+        self.ships = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4]
+        self.matrix = matrix
         for y in range(10):
             line = []
             for x in range(10):
-                cell = Cell(pos=(x, y), master=frm_user_field, width=40, height=40,
-                            bg='#fff', relief=GROOVE, borderwidth=1)
+                cell = Cell(master=self, pos=(x, y), width=40, height=40, relief=GROOVE, bg='#fff', borderwidth=1)
                 cell.grid(row=y, column=x)
                 line.append(cell)
-            matrix.append(line)
+            self.matrix.append(line)
 
-        btn_check.pack(side=BOTTOM, pady='10')
+    def place(self):
+        flag = True
+        if len(self.selected_cells) == self.ships[0]:
+            set_of_x = set()
+            set_of_y = set()
+            coordinates = []
+            for cell in self.selected_cells:
+                coordinates.append(cell.pos)
+                set_of_x.add(cell.pos[0])
+                set_of_y.add(cell.pos[1])
+            coordinates.sort()
+            print('!', coordinates, set_of_x, set_of_y, sep='\n')  # debug
+            for i in range(self.ships[0] - 1):
+                if not ((len(set_of_x) == 1 or len(set_of_y) == 1)
+                        and (abs(coordinates[i][0] - coordinates[i + 1][0]) == 1
+                             or abs(coordinates[i][1] - coordinates[i + 1][1]) == 1)):
+                    messagebox.showerror('Error', 'Incorrect form of ship')
+                    flag = False
+                    break
+            if flag:
+                poses = self.placed_cells.copy()
+                for pos in coordinates:
+                    poses.remove(pos)
+                for pos in coordinates:
+                    for cell in poses:
+                        if (abs(pos[0] - cell[0]) == 1 and abs(pos[1] - cell[1]) == 1) \
+                                or (pos[0] - cell[0] == 0 and abs(pos[1] - cell[1]) == 1) \
+                                or (abs(pos[0] - cell[0]) == 1 and pos[1] - cell[1] == 0):
+                            print(self.placed_cells)  # debug
+                            print(poses)  # debug
+                            flag = False
+                            messagebox.showerror('Error', 'Incorrect positioning')
+                            break
+                    if not flag:
+                        break
+        elif self.ships[0] > len(self.selected_cells):
+            messagebox.showerror('Error', 'Select more cells')
+            flag = False
+        else:
+            messagebox.showerror('Error', 'Too many selected cells')
+            flag = False
+        if flag:
+            self.ships.pop(0)
+            for cell in self.selected_cells:
+                cell.status = 'part'
+            self.selected_cells.clear()
+        else:
+            self.unselect_cells()
+        if len(self.ships) == 0:
+            self.player.master.ready(self.player)
 
-    @staticmethod
-    def game():
-        global matrix, matrix_enemy
-        matrix_enemy = []
-        frm_user_field.pack(side=LEFT, padx='10', pady='10')
-        frm_enemy_field.pack(side=RIGHT, padx='10', pady='10')
-        for y in range(10):
-            line = []
-            for x in range(10):
-                if matrix[y][x].status == 1:
-                    matrix[y][x].status = 6
-                elif matrix[y][x].status == 0:
-                    matrix[y][x].status = 5
-                cell = Cell(pos=(x, y), status=5, master=frm_enemy_field, width=40, height=40,
-                            bg='#fff', relief=GROOVE, borderwidth=1)
-                cell.grid(row=y, column=x)
-                line.append(cell)
-            matrix_enemy.append(line)
+    def unselect_cells(self):
+        for cell in self.selected_cells.copy():
+            cell.select('<Button-1>')
 
 
 class Cell(LabelFrame):
-    def __init__(self, pos, status=0, master=None, cnf={}, **kw):
-        super().__init__(master, cnf, **kw)
+    def __init__(self, pos, status='empty', **kw):
+        super().__init__(**kw)
         self.pos = pos
-        self.x = pos[0]
-        self.y = pos[1]
         self.status = status
         self.bind('<Button-1>', self.select)
 
     def select(self, event):
-        global selected_cells, matrix
-        if self.status == 1:
-            self['bg'] = '#fff'
-            self.status = 0
-            selected_cells.remove(self)
-            selected_pos.remove(self.pos)
-        elif self.status == 0:
+        if self.status == 'empty':
+            self.status = 'filled'
             self['bg'] = '#000'
-            self.status = 1
-            selected_cells.append(self)
-            selected_pos.append(self.pos)
-        print(self.pos)  # debug
-        print(len(selected_cells))
+            self.master.selected_cells.append(self)
+            self.master.placed_cells.append(self.pos)
+        elif self.status == 'filled':
+            self.status = 'empty'
+            self['bg'] = '#fff'
+            self.master.selected_cells.remove(self)
+            self.master.placed_cells.remove(self.pos)
 
 
-class Ship:
-    def __init__(self, cells):
-        self.cells = cells
+class Player:
+    def __init__(self, id, master, name='Player'):
+        self.master = master
+        self.name = name
+        self.id = id
+        self.board = Board(self, height=400, width=400)
 
 
-def place():
-    global selected_cells, num_ships, ships, selected_pos
-    poses = []
-    flag = True
-    print('!', *selected_cells)
-    if num_ships[0] == len(selected_cells):
-        set_of_y = set()
-        set_of_x = set()
-        coordinates = []
-        for cell in selected_cells:
-            coordinates.append(cell.pos)
-            set_of_x.add(cell.pos[0])
-            set_of_y.add(cell.pos[1])
-        coordinates.sort()
-        print('!', coordinates)
-        for i in range(num_ships[0] - 1):
-            if not ((len(set_of_x) == 1 or len(set_of_y) == 1)
-                    and (abs(coordinates[i][0] - coordinates[i + 1][0]) == 1
-                         or abs(coordinates[i][1] - coordinates[i + 1][1]) == 1)):
-                messagebox.showerror('Error', 'Incorrect form of ship')
-                flag = False
-                break
-        if flag:
-            poses = selected_pos.copy()
-            for pos in coordinates:
-                poses.remove(pos)
-            for pos in coordinates:
-                in_flag = True
-                if matrix[pos[1]][pos[0]].status == 0:
-                    messagebox.showerror('Error', 'Already placed')
-                    flag = False
-                    break
-                for cell in poses:
-                    if (abs(pos[0] - cell[0]) == 1 and abs(pos[1] - cell[1]) == 1) \
-                            or (pos[0] - cell[0] == 0 and abs(pos[1] - cell[1]) == 1) \
-                            or (abs(pos[0] - cell[0]) == 1 and pos[1] - cell[1] == 0):
-                        print(selected_pos)
-                        print(poses)
-                        flag = False
-                        in_flag = False
-                        messagebox.showerror('Error', 'Incorrect positioning')
-                        break
-                if not in_flag:
-                    break
-    elif num_ships[0] > len(selected_cells):
-        messagebox.showerror('Error', 'Select more cells')
-        flag = False
-    else:
-        messagebox.showerror('Error', 'Too many selected cells')
-        flag = False
-    if flag:
-        ships.append(Ship(selected_cells))
-        print(selected_pos)
-        num_ships.pop(0)
-        selected_cells.clear()
-    else:
-        unselect_cells(selected_cells)
-    if len(num_ships) == 0:
-        btn_check.pack_forget()
-        app.game()
-
-
-def unselect_cells(cells):
-    for cell in cells.copy():
-        cell.select('<Button-1>')
-    cells.clear()
-
-
-selected_pos = []
-num_ships = []
-selected_cells = []
-ships = []
-matrix = []
-matrix_enemy = []
-
-app = Game()
-menu = Menu()
-menu.add_command(label='New Game', command=app.new_game)
-app['menu'] = menu
-app.title('BattleShip')
-
-frm_user_field = Frame(height=400, width=400)
-frm_enemy_field = Frame(height=400, width=400)
-btn_check = Button(text='Place ship', command=place, padx=10, pady=5)
-
-app.mainloop()
+if __name__ == '__main__':
+    Game().mainloop()
