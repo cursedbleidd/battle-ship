@@ -20,6 +20,10 @@ class Game(Tk):
         menu.add_command(label='Change mode', command=self.change_mode)
         self.rules.grid(row=0, column=0)
         self.btn_place = Button(text='Place ship', padx=10, pady=6)
+        self.labels = []
+        letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+        for id, letter in enumerate(letters, 1):
+            self.labels.append(((Label(text=letter, justify=CENTER), id), Label(text=id, justify=CENTER)))
 
     def delete_players(self):
         try:
@@ -35,6 +39,9 @@ class Game(Tk):
         self.player2 = Player(2, self, name='Player2')
         self.label = Label(text=f'{self.player1.name}', justify=CENTER)
         letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+        for label in self.labels:
+            label[0][0].grid_forget()
+            label[1].grid_forget()
         for id, letter in enumerate(letters, 1):
             Label(text=letter, justify=CENTER).grid(row=2, column=(id+1))
             Label(text=id, justify=CENTER).grid(row=(id+2), column=1, padx=5)
@@ -82,10 +89,9 @@ class Game(Tk):
         if self.mode == 'pc':
             self.change_board()
         else:
-            letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
-            for id, letter in enumerate(letters, 1):
-                Label(text=letter, justify=CENTER, padx=15).grid(row=2, column=(id + 12))
-                Label(text=id, justify=CENTER).grid(row=(id + 2), column=12)
+            for label in self.labels:
+                label[0][0].grid(row=2, column=label[0][1]+12)
+                label[1].grid(row=(2+int(label[1]['text'])), column=12)
 
     def change_board(self):
         (self.player1, self.player2)[not self.turn].board.grid_forget()
@@ -135,7 +141,6 @@ class Board(Frame):
                 set_of_x.add(cell.pos[0])
                 set_of_y.add(cell.pos[1])
             coordinates.sort()
-            print('!', coordinates, set_of_x, set_of_y, sep='\n')  # debug
             for i in range(self.ships[0] - 1):
                 if not ((len(set_of_x) == 1 or len(set_of_y) == 1)
                         and (abs(coordinates[i][0] - coordinates[i + 1][0]) == 1
@@ -152,8 +157,6 @@ class Board(Frame):
                         if (abs(pos[0] - cell[0]) == 1 and abs(pos[1] - cell[1]) == 1) \
                                 or (pos[0] - cell[0] == 0 and abs(pos[1] - cell[1]) == 1) \
                                 or (abs(pos[0] - cell[0]) == 1 and pos[1] - cell[1] == 0):
-                            print(self.placed_cells)  # debug
-                            print(poses)  # debug
                             flag = False
                             messagebox.showerror('Error', 'Incorrect positioning')
                             break
@@ -257,7 +260,7 @@ class Player:
         self.parameters = (3, 2, 10)
         if self.id == 2:
             self.parameters = (3, 13, 10)
-        self.board = Board(self, height=400, width=400, padx=10, pady=5)
+        self.board = Board(self, height=400, width=400)
 
 
 if __name__ == '__main__':
